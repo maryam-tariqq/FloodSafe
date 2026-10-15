@@ -1,0 +1,16 @@
+# secrets: never commit these
+.env
+.env.local
+
+# installed or generated: others rebuild them
+node_modules
+.next
+
+# user-uploaded photos
+server/uploads
+
+# editor and OS junk
+.DS_Store
+Thumbs.db
+.vscode
+*.log
