@@ -87,7 +87,24 @@ export default function AuthForm({ register = false }) {
               ? "Create " + NAME[role] + " account"
               : "Login as " + NAME[role]}
           </button>
-          {/* the <p> with the Register/Login link and the guest link stay exactly as they are */}
+          <p className="m">
+            {register ? (
+              <>
+                Have an account? <Link href="/login">Login</Link>
+              </>
+            ) : role === "authority" ? (
+              "Admin accounts are issued by the system administrator."
+            ) : (
+              <>
+                New here? <Link href="/register">Register</Link>
+              </>
+            )}
+          </p>
+          {!register && (
+            <p>
+              <Link href="/map">Continue as guest (view map)</Link>
+            </p>
+          )}
         </form>
       </div>
     </div>
