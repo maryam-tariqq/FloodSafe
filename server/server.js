@@ -39,8 +39,12 @@ const wrap = (f) => (req, res) =>
   f(req, res).catch((e) => {
     console.error(e.message); // full detail stays in the server log only
     if (e.code == 401) return res.status(401).json({ error: e.message });
-    if (e.code === "23505") return res.status(409).json({ error: "That already exists." });
-    if (e.code) return res.status(400).json({ error: "Something went wrong. Please try again." });
+    if (e.code === "23505")
+      return res.status(409).json({ error: "That already exists." });
+    if (e.code)
+      return res
+        .status(400)
+        .json({ error: "Something went wrong. Please try again." });
     res.status(400).json({ error: e.message });
   });
 const auth =
@@ -88,7 +92,9 @@ app.post(
       [name.trim(), contact.trim(), await bcrypt.hash(password, 10), role],
     ).catch((e) => {
       if (e.code === "23505")
-        throw Error("An account with this phone or email already exists. Try logging in.");
+        throw Error(
+          "An account with this phone or email already exists. Try logging in.",
+        );
       throw e;
     });
     setSession(res, u);
@@ -155,8 +161,10 @@ app.get(
       await q(
         `select id,name,capacity,available,status,updated_at,${LL},
     ST_Distance(geom::geography,ST_SetSRID(ST_MakePoint($1,$2),4326)::geography)/1000 km
-    from relief_centers order by (status='OPEN' and available>0) desc, geom<->ST_SetSRID(ST_MakePoint($1,$2),4326) limit 5`,
-        [+lng, +lat],
+    from relief_centers
+    where ST_DWithin(geom::geography,ST_SetSRID(ST_MakePoint($1,$2),4326)::geography,$3)
+    order by (status='OPEN' and available>0) desc, geom<->ST_SetSRID(ST_MakePoint($1,$2),4326) limit 5`,
+        [+lng, +lat, 50000],
       ),
     );
   }),
