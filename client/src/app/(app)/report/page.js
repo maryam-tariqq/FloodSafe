@@ -25,9 +25,18 @@ export default function ReportPage() {
     <>
       <h3>Report flooding</h3>
       <PinInfo />
-      <textarea rows={4} maxLength={500} value={d} onChange={(e) => setD(e.target.value)}
-        placeholder="What is happening? Water depth, who is affected…" />
-      <input type="file" accept="image/jpeg,image/png" onChange={(e) => setFile(e.target.files[0])} />
+      <textarea
+        rows={4}
+        maxLength={500}
+        value={d}
+        onChange={(e) => setD(e.target.value)}
+        placeholder="What is happening? Water depth, who is affected…"
+      />
+      <input
+        type="file"
+        accept="image/jpeg,image/png"
+        onChange={(e) => setFile(e.target.files[0])}
+      />
       <button onClick={send}>Submit report</button>
     </>
   );

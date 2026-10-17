@@ -1,5 +1,12 @@
 "use client";
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { PUBLIC_PATHS } from "./roles";
 import { api } from "./api";
@@ -34,9 +41,33 @@ export function AppProvider({ children }) {
     setToast(t);
     setTimeout(() => setToast(""), 3500);
   }, []);
-  const safe = useCallback((f) => async (...a) => { try { await f(...a); } catch (e) { msg(e.message); } }, [msg]);
+  const safe = useCallback(
+    (f) =>
+      async (...a) => {
+        try {
+          await f(...a);
+        } catch (e) {
+          msg(e.message);
+        }
+      },
+    [msg],
+  );
 
-  const loadMap = useCallback(() => api("/map").then(setMD).catch(() => {}), []);
+  const loadMap = useCallback(
+    () =>
+      api("/map")
+        .then((d) =>
+          setMD((prev) =>
+            JSON.stringify(prev) === JSON.stringify(d) ? prev : d,
+          ),
+        )
+        .catch((e) => {
+          console.log("map failed: ", e.message);
+        }),
+    [],
+  );
+
+  // load the map data now, then refresh every 5 seconds
   useEffect(() => {
     loadMap();
     const t = setInterval(loadMap, 5000);
@@ -44,14 +75,37 @@ export function AppProvider({ children }) {
   }, [loadMap]);
 
   // leaving a page cancels zone drawing
-  useEffect(() => { setMode(null); setZpts([]); }, [path]);
+  useEffect(() => {
+    setMode(null);
+    setZpts([]);
+  }, [path]);
 
   const flyTo = (lat, lng) => mapRef.current?.flyTo([lat, lng], 15);
 
   return (
-    <Ctx.Provider value={{ ready, user, setUser, msg, safe, MD, loadMap, pin, setPin, mode, setMode, zpts, setZpts, mapRef, flyTo }}>
+    <Ctx.Provider
+      value={{
+        ready,
+        user,
+        setUser,
+        msg,
+        safe,
+        MD,
+        loadMap,
+        pin,
+        setPin,
+        mode,
+        setMode,
+        zpts,
+        setZpts,
+        mapRef,
+        flyTo,
+      }}
+    >
       {children}
-      <div id="toast" style={{ display: toast ? "block" : "none" }}>{toast}</div>
+      <div id="toast" style={{ display: toast ? "block" : "none" }}>
+        {toast}
+      </div>
     </Ctx.Provider>
   );
 }

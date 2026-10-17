@@ -93,7 +93,7 @@ main {
 }
 #map {
   flex: 1;
-  background: #111;
+  background: #dfe8ec;
 }
 h3 {
   margin: 0 0 10px;
@@ -294,4 +294,25 @@ label {
   font-size: 12px;
   color: var(--m);
   margin: 2px 0 4px;
+}
+
+.spin {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bd);
+  border-top-color: var(--a);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
