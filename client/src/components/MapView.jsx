@@ -21,6 +21,22 @@ const floodPin = (L, color) =>
     popupAnchor: [0, -50],
   });
 
+// Plus/cross symbol, drawn on a 24x24 grid
+const CROSS_PATH = "M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z";
+
+// Rounded-square badge with a pointer: different shape from the flood pin
+const centerPin = (L, color) =>
+  L.divIcon({
+    className: "flood-pin",
+    html: `<svg width="44" height="54" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 4h16a10 10 0 0 1 10 10v16a10 10 0 0 1-10 10h-4l-4 6-4-6h-4A10 10 0 0 1 4 30V14A10 10 0 0 1 14 4Z" fill="${color}" stroke="#fff" stroke-width="2.5"/>
+      <g transform="translate(10 10)"><path d="${CROSS_PATH}" fill="#fff"/></g>
+    </svg>`,
+    iconSize: [44, 54],
+    iconAnchor: [22, 46],
+    popupAnchor: [0, -44],
+  });
+
 export default function MapView() {
   const { MD, pin, setPin, mode, zpts, setZpts, mapRef } = useApp();
   const el = useRef(null);
@@ -101,17 +117,15 @@ export default function MapView() {
         .addTo(g),
     );
     MD.centers.forEach((c) =>
-      L.circleMarker([c.g.coordinates[1], c.g.coordinates[0]], {
-        radius: 10,
-        color: "#fff",
-        weight: 2,
-        fillOpacity: 0.95,
-        fillColor:
+      L.marker([c.g.coordinates[1], c.g.coordinates[0]], {
+        icon: centerPin(
+          L,
           c.status !== "OPEN"
             ? "#888"
             : c.available <= 0
               ? "#e6b84a"
               : "#4caf7d",
+        ),
       })
         .bindPopup(
           `<b>${esc(c.name)}</b><br>${esc(c.status)} · ${c.available}/${c.capacity} spaces<br><small>Updated ${fmt(c.updated_at)}</small>`,
