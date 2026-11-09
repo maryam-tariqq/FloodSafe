@@ -6,7 +6,7 @@
   --m: #5b7480;
   --a: #0b6e8f;
   --ok: #1f8f5f;
-  --w: ##c98a00;
+  --w: #c98a00;
   --bad: #c8372d;
   --bd: #cddbe2;
   --in: #ffffff;
@@ -219,6 +219,7 @@ img {
   display: none;
   z-index: 9999;
 }
+
 @media (max-width: 760px) {
   main {
     flex-direction: column;
@@ -226,6 +227,8 @@ img {
   #nav {
     width: auto;
     flex-direction: row;
+    overflow-y: hidden;
+    flex-shrink: 0;
   }
   #panel {
     width: auto;
@@ -235,6 +238,7 @@ img {
     min-height: 42vh;
   }
 }
+
 a {
   color: var(--a);
   cursor: pointer;
