@@ -1,6 +1,7 @@
 "use client";
 import { useApp } from "@/lib/AppContext";
 import { api } from "@/lib/api";
+import Logo from "@/components/Logo";
 
 export default function Navbar() {
   const { user, setUser, MD } = useApp();
@@ -13,7 +14,7 @@ export default function Navbar() {
   };
   return (
     <header>
-      <b>🌊 FloodSafe</b>
+      <Logo />
       <div id="chips">
         <span className="chip">
           <b>{MD.reports.length}</b>verified reports
@@ -27,7 +28,8 @@ export default function Navbar() {
         </span>
       </div>
       {user && (
-        <span>
+        <span className="user">
+          <span className="av">{(user.name || "?")[0].toUpperCase()}</span>
           {user.name} <small className="m">({user.role})</small>{" "}
           <button className="logout" onClick={logout}>
             Logout

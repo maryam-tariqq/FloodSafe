@@ -2,7 +2,7 @@
 import { useApp } from "@/lib/AppContext";
 import { api } from "@/lib/api";
 import { useLoad } from "@/lib/useLoad";
-import { Badge, Card, Empty } from "@/components/ui";
+import { Badge, Card, Empty, Track } from "@/components/ui";
 
 export default function TasksPage() {
   const { safe, flyTo } = useApp();
@@ -25,6 +25,7 @@ export default function TasksPage() {
                 <br />
                 <small className="m">{x.center || ""}</small>
               </p>
+              <Track s={x.status} />
               <div className="row">
                 <button className="g" onClick={() => flyTo(x.lat, x.lng)}>
                   Locate

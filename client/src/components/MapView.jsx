@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import { useApp } from "@/lib/AppContext";
 import { esc, fmt } from "@/lib/format";
 
-const SEV = { High: "#e5645a", Medium: "#e6b84a", Low: "#4caf7d" };
+const SEV = { High: "#F39C12", Medium: "#0073CF", Low: "#7FB8E3" }; // FloodSafe palette: amber / flood blue / light blue
 // MUI "FloodRounded" icon path (Material Design icons, Apache-2.0)
 const FLOOD_PATH =
   "M18.67 19c-1.95 0-2.09 1-3.33 1-1.19 0-1.42-1-3.33-1-1.95 0-2.1 1-3.34 1-1.24 0-1.38-1-3.33-1-1.54 0-1.96.62-2.67.88-.4.15-.67.52-.67.95 0 .71.72 1.19 1.38.94.77-.29 1.11-.77 1.96-.77 1.24 0 1.38 1 3.33 1 1.95 0 2.1-1 3.34-1 1.22 0 1.4 1 3.33 1 1.93 0 2.1-1 3.33-1 .84 0 1.18.47 1.95.77.66.26 1.38-.23 1.38-.94v-.01c0-.42-.27-.8-.67-.94-.71-.26-1.12-.88-2.66-.88zm-9.99-1.5c1.95 0 2.09-1 3.33-1 1.19 0 1.42 1 3.33 1 1.95 0 2.09-1 3.33-1 .82 0 1.17.46 1.93.76.66.26 1.38-.23 1.38-.94 0-.42-.26-.79-.65-.94-.29-.11-.54-.27-.83-.43l-2.02-7.53 1.17.47c.51.21 1.09-.04 1.29-.55.21-.51-.05-1.1-.57-1.29l-9.24-3.54c-.81-.31-1.72-.06-2.27.61l-6.23 7.7c-.35.43-.28 1.06.16 1.4.43.34 1.06.26 1.39-.17l.78-1 .93 3.48c-.18-.02-.35-.05-.56-.05-1.54 0-1.95.62-2.66.88-.4.17-.67.55-.67.97 0 .7.69 1.19 1.35.95.8-.29 1.18-.78 2-.78 1.19 0 1.42 1 3.33 1zm5.36-7.32 1.42 5.31c-1.34.09-1.47-.99-3.47-.99-.36 0-.65.04-.91.1l-.91-3.39 3.87-1.03z";
@@ -19,22 +19,6 @@ const floodPin = (L, color) =>
     iconSize: [44, 54],
     iconAnchor: [22, 52],
     popupAnchor: [0, -50],
-  });
-
-// Plus/cross symbol, drawn on a 24x24 grid
-const CROSS_PATH = "M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z";
-
-// Rounded-square badge with a pointer: different shape from the flood pin
-const centerPin = (L, color) =>
-  L.divIcon({
-    className: "flood-pin",
-    html: `<svg width="44" height="54" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg">
-      <path d="M14 4h16a10 10 0 0 1 10 10v16a10 10 0 0 1-10 10h-4l-4 6-4-6h-4A10 10 0 0 1 4 30V14A10 10 0 0 1 14 4Z" fill="${color}" stroke="#fff" stroke-width="2.5"/>
-      <g transform="translate(10 10)"><path d="${CROSS_PATH}" fill="#fff"/></g>
-    </svg>`,
-    iconSize: [44, 54],
-    iconAnchor: [22, 46],
-    popupAnchor: [0, -44],
   });
 
 export default function MapView() {
@@ -99,8 +83,8 @@ export default function MapView() {
     MD.zones.forEach((z) =>
       L.geoJSON(z.g, {
         style: {
-          color: SEV[z.severity] || "#e6b84a",
-          fillOpacity: 0.25,
+          color: SEV[z.severity] || "#0073CF",
+          fillOpacity: 0.3,
           weight: 2,
         },
       })
@@ -109,7 +93,7 @@ export default function MapView() {
     );
     MD.reports.forEach((r) =>
       L.marker([r.g.coordinates[1], r.g.coordinates[0]], {
-        icon: floodPin(L, "#e5645a"),
+        icon: floodPin(L, "#0073CF"),
       })
         .bindPopup(
           `<b>Verified flood report</b><br>${esc(r.description)}${r.photo ? `<br><img width=160 src="/uploads/${esc(r.photo)}">` : ""}<br>${fmt(r.created_at)}`,
@@ -117,15 +101,17 @@ export default function MapView() {
         .addTo(g),
     );
     MD.centers.forEach((c) =>
-      L.marker([c.g.coordinates[1], c.g.coordinates[0]], {
-        icon: centerPin(
-          L,
+      L.circleMarker([c.g.coordinates[1], c.g.coordinates[0]], {
+        radius: 10,
+        color: "#fff",
+        weight: 2,
+        fillOpacity: 0.95,
+        fillColor:
           c.status !== "OPEN"
-            ? "#888"
+            ? "#9AA9B2"
             : c.available <= 0
-              ? "#e6b84a"
-              : "#4caf7d",
-        ),
+              ? "#F39C12"
+              : "#48C9B0",
       })
         .bindPopup(
           `<b>${esc(c.name)}</b><br>${esc(c.status)} · ${c.available}/${c.capacity} spaces<br><small>Updated ${fmt(c.updated_at)}</small>`,
@@ -141,7 +127,7 @@ export default function MapView() {
     pinM.current = null;
     if (pin)
       pinM.current = Lr.current
-        .marker(pin, { icon: floodPin(Lr.current, "#0b6e8f") })
+        .marker(pin, { icon: floodPin(Lr.current, "#F39C12") })
         .addTo(mapRef.current);
   }, [ready, pin]);
 
@@ -151,7 +137,7 @@ export default function MapView() {
     zl.current?.remove();
     zl.current = zpts.length
       ? Lr.current
-          .polygon(zpts, { color: "#e0875a", dashArray: "4" })
+          .polygon(zpts, { color: "#F39C12", dashArray: "4" })
           .addTo(mapRef.current)
       : null;
   }, [ready, zpts]);

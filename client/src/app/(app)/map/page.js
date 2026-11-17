@@ -5,7 +5,8 @@ export default function MapPage() {
     <>
       <h3>Live flood map</h3>
       <p>Only authority-verified information is shown.</p>
-      <p><Dot c="#e5645a" />Verified report<Dot c="#4caf7d" />Open center<Dot c="#e6b84a" />Full<Dot c="#888" />Closed</p>
+      <p><Dot c="#0073CF" />Verified report<Dot c="#48C9B0" />Open center<Dot c="#F39C12" />Full<Dot c="#9AA9B2" />Closed</p>
+      <p className="m">Flood zones by depth risk:<br /><Dot c="#7FB8E3" />Low<Dot c="#0073CF" />Medium<Dot c="#F39C12" />High</p>
     </>
   );
 }

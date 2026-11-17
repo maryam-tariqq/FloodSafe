@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/AppContext";
 import { api } from "@/lib/api";
 import { HOME } from "@/lib/roles";
+import Logo from "@/components/Logo";
 
 const NAME = { resident: "User", volunteer: "Volunteer", authority: "Admin" };
 const HINT = {
@@ -39,8 +40,23 @@ export default function AuthForm({ register = false }) {
 
   return (
     <div id="lg">
+      <div className="hero">
+        <Logo size={1.1} />
+        <p className="kicker">Flood Monitoring &amp; Emergency Response</p>
+        <h1>
+          Know where the water is.<span>Know where to go.</span>
+        </h1>
+        <svg className="waves" viewBox="0 0 400 100" preserveAspectRatio="none" aria-hidden="true">
+          <g fill="none" strokeWidth="3">
+            <path d="M0 30Q25 10 50 30T100 30T150 30T200 30T250 30T300 30T350 30T400 30" stroke="#48C9B0" />
+            <path d="M0 52Q25 34 50 52T100 52T150 52T200 52T250 52T300 52T350 52T400 52" stroke="#AED6F1" />
+            <path d="M0 74Q25 56 50 74T100 74T150 74T200 74T250 74T300 74T350 74T400 74" stroke="#0073CF" />
+          </g>
+        </svg>
+      </div>
+      <div className="lcard">
       <div className="lbox">
-        <h2>🌊 FloodSafe</h2>
+        <h2>{register ? "Create your account" : "Welcome back"}</h2>
         <p className="m">One verified map for flood response</p>
         <div className="tabs">
           {roles.map((r) => (
@@ -106,6 +122,7 @@ export default function AuthForm({ register = false }) {
             </p>
           )}
         </form>
+      </div>
       </div>
     </div>
   );

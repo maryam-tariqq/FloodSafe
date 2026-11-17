@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/AppContext";
 import { api } from "@/lib/api";
 import { fmt } from "@/lib/format";
-import { Badge, Card } from "@/components/ui";
+import { Badge, Card, Tank } from "@/components/ui";
 
 export default function NearbyPage() {
   const { safe, flyTo } = useApp();
@@ -59,15 +59,20 @@ export default function NearbyPage() {
 
       {res.map((c) => (
         <Card key={c.id}>
-          <b>{c.name}</b> <Badge s={c.status} />
-          <br />
-          {c.km.toFixed(1)} km · {c.available}/{c.capacity} spaces
-          <br />
-          <small className="m">Updated {fmt(c.updated_at)}</small>
-          <br />
-          <button className="g" onClick={() => flyTo(c.lat, c.lng)}>
-            Show
-          </button>
+          <div className="split">
+            <div>
+              <b>{c.name}</b> <Badge s={c.status} />
+              <br />
+              {c.km.toFixed(1)} km · {c.available}/{c.capacity} spaces
+              <br />
+              <small className="m">Updated {fmt(c.updated_at)}</small>
+              <br />
+              <button className="g" onClick={() => flyTo(c.lat, c.lng)}>
+                Show
+              </button>
+            </div>
+            <Tank free={c.available} total={c.capacity} />
+          </div>
         </Card>
       ))}
     </>
