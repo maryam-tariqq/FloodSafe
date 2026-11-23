@@ -4,7 +4,7 @@ import { fmt } from "@/lib/format";
 import { Badge, Card, Empty } from "@/components/ui";
 
 export default function MyRequestsPage() {
-  const [r] = useLoad("/requests/mine");
+  const [r] = useLoad("/requests/mine", 5000);
   return (
     <>
       <h3>My requests</h3>

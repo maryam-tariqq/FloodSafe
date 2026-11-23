@@ -17,8 +17,9 @@ const db = new Pool({
   database: process.env.DB_NAME,
 });
 
-// random on every start: restarting the server invalidates every existing login
-const SECRET = require("crypto").randomBytes(32).toString("hex");
+// random on every start unless JWT_SECRET is set: restarting then invalidates every existing login
+const SECRET =
+  process.env.JWT_SECRET || require("crypto").randomBytes(32).toString("hex");
 
 fs.mkdirSync("uploads", { recursive: true });
 const up = multer({
@@ -28,12 +29,42 @@ const up = multer({
       cb(null, Date.now() + (f.mimetype == "image/png" ? ".png" : ".jpg")),
   }),
   limits: { fileSize: 2e6 },
-  fileFilter: (r, f, cb) => cb(null, /^image\/(jpeg|png)$/.test(f.mimetype)),
+  fileFilter: (r, f, cb) =>
+    /^image\/(jpeg|png)$/.test(f.mimetype)
+      ? cb(null, true)
+      : cb(Error("Photo must be a JPEG or PNG image")),
 });
+// multer errors (wrong type, too big) come back as a clear message
+const upPhoto = (req, res, next) =>
+  up.single("photo")(req, res, (e) =>
+    e
+      ? res.status(400).json({
+          error:
+            e.code === "LIMIT_FILE_SIZE" ? "Photo must be under 2 MB" : e.message,
+        })
+      : next(),
+  );
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-app.use("/uploads", express.static("uploads"));
+app.get("/uploads/:file", async (req, res) => {
+  const file = path.basename(req.params.file);
+  const [r] = await q("select user_id,status from reports where photo=$1", [
+    file,
+  ]).catch(() => []);
+  if (!r) return res.status(404).end();
+  if (r.status !== "VERIFIED") {
+    let u;
+    try {
+      u = jwt.verify(req.cookies?.token || "", SECRET);
+    } catch {
+      return res.status(403).end();
+    }
+    if (u.role !== "authority" && u.id !== r.user_id)
+      return res.status(403).end();
+  }
+  res.sendFile(path.resolve("uploads", file));
+});
 const q = (s, p) => db.query(s, p).then((r) => r.rows);
 const wrap = (f) => (req, res) =>
   f(req, res).catch((e) => {
@@ -174,7 +205,7 @@ app.get(
 app.post(
   "/api/reports",
   auth("resident"),
-  up.single("photo"),
+  upPhoto,
   wrap(async (req, res) => {
     const { lat, lng, description } = req.body;
     if (!okLL(lat, lng) || !(description || "").trim())
@@ -214,7 +245,13 @@ app.get(
     res.json(
       await q(
         `select r.id,r.description,r.photo,r.status,r.created_at,u.name,ST_Y(r.geom) lat,ST_X(r.geom) lng from reports r join users u on u.id=r.user_id where r.status=$1 order by r.created_at`,
-        [req.query.status || "PENDING"],
+        [
+          ["PENDING", "VERIFIED", "REJECTED", "ARCHIVED"].includes(
+            req.query.status,
+          )
+            ? req.query.status
+            : "PENDING",
+        ],
       ),
     ),
   ),
@@ -225,10 +262,17 @@ app.patch(
   wrap(async (req, res) => {
     if (!["VERIFIED", "REJECTED", "ARCHIVED"].includes(req.body.status))
       throw Error("Bad status");
-    await q("update reports set status=$1,decided_at=now() where id=$2", [
-      req.body.status,
-      req.params.id,
-    ]);
+    // allowed moves: PENDING -> VERIFIED/REJECTED, VERIFIED -> ARCHIVED/REJECTED, REJECTED -> VERIFIED
+    const from = {
+      VERIFIED: ["PENDING", "REJECTED"],
+      REJECTED: ["PENDING", "VERIFIED"],
+      ARCHIVED: ["VERIFIED"],
+    }[req.body.status];
+    const r = await q(
+      "update reports set status=$1,decided_at=now() where id=$2 and status=any($3) returning id",
+      [req.body.status, req.params.id, from],
+    );
+    if (!r.length) throw Error("This report can't be moved to that status");
     res.json({ ok: 1 });
   }),
 );
@@ -251,6 +295,23 @@ app.post(
     );
   }),
 );
+app.put(
+  "/api/zones/:id",
+  auth("authority"),
+  wrap(async (req, res) => {
+    const { name, severity, geometry } = req.body;
+    if (!name?.trim()) throw Error("Zone name required");
+    if (geometry && geometry.type != "Polygon") throw Error("Bad zone shape");
+    const r = await q(
+      `update flood_zones set name=$1,severity=$2${geometry ? ",geom=ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON($4),4326))" : ""} where id=$3 returning id`,
+      geometry
+        ? [name.trim(), severity, req.params.id, JSON.stringify(geometry)]
+        : [name.trim(), severity, req.params.id],
+    );
+    if (!r.length) throw Error("Zone not found");
+    res.json({ ok: 1 });
+  }),
+);
 app.delete(
   "/api/zones/:id",
   auth("authority"),
@@ -267,6 +328,8 @@ app.post(
   wrap(async (req, res) => {
     const { name, lat, lng, capacity, available, status } = req.body;
     if (!name || !okLL(lat, lng)) throw Error("Name and location required");
+    if (!(+capacity >= 0) || !(+available >= 0) || +available > +capacity)
+      throw Error("Available spaces can't be more than capacity");
     res.json(
       (
         await q(
@@ -281,10 +344,39 @@ app.put(
   "/api/centers/:id",
   auth("authority"),
   wrap(async (req, res) => {
+    const { name, lat, lng, capacity, available, status } = req.body;
+    const [c] = await q("select capacity from relief_centers where id=$1", [
+      req.params.id,
+    ]);
+    if (!c) throw Error("Center not found");
+    const cap = capacity === undefined ? c.capacity : +capacity;
+    if (!(cap >= 0) || !(+available >= 0) || +available > cap)
+      throw Error("Available spaces can't be more than capacity");
+    if (name !== undefined && !name.trim()) throw Error("Name required");
+    if (lat !== undefined && !okLL(lat, lng)) throw Error("Bad location");
+    const sets = ["available=$1", "status=$2", "capacity=$3", "updated_at=now()"];
+    const p = [+available, status, cap];
+    if (name !== undefined) sets.push(`name=$${p.push(name.trim())}`);
+    if (lat !== undefined)
+      sets.push(
+        `geom=ST_SetSRID(ST_MakePoint($${p.push(+lng)},$${p.push(+lat)}),4326)`,
+      );
     await q(
-      "update relief_centers set available=$1,status=$2,updated_at=now() where id=$3",
-      [+req.body.available, req.body.status, req.params.id],
+      `update relief_centers set ${sets.join(",")} where id=$${p.push(req.params.id)}`,
+      p,
     );
+    res.json({ ok: 1 });
+  }),
+);
+app.delete(
+  "/api/centers/:id",
+  auth("authority"),
+  wrap(async (req, res) => {
+    // requests that pointed at this center stay, just without a center
+    await q("update requests set center_id=null where center_id=$1", [
+      req.params.id,
+    ]);
+    await q("delete from relief_centers where id=$1", [req.params.id]);
     res.json({ ok: 1 });
   }),
 );
@@ -297,6 +389,14 @@ app.post(
     const { center_id, people, need, lat, lng } = req.body;
     if (!okLL(lat, lng) || !need?.trim())
       throw Error("Location and need required");
+    if (center_id) {
+      const [c] = await q(
+        "select status,available from relief_centers where id=$1",
+        [center_id],
+      );
+      if (!c || c.status !== "OPEN" || c.available <= 0)
+        throw Error("That relief center is closed or full");
+    }
     res.json(
       (
         await q(
@@ -356,6 +456,12 @@ app.post(
     const { volunteer_id, priority } = req.body;
     if (!["Low", "Medium", "High"].includes(priority))
       throw Error("Pick priority");
+    const [v] = await q(
+      "select id from users where id=$1 and role='volunteer'",
+      [volunteer_id || null],
+    ).catch(() => []);
+    if (!v)
+      throw Error("Select a volunteer (no volunteers are registered yet?)");
     const c = await db.connect();
     try {
       await c.query("begin");
@@ -396,11 +502,51 @@ app.get(
     res.json(
       await q(
         `select t.id,t.priority,t.status,r.people,r.need,u.name resident,u.contact,c.name center,ST_Y(r.geom) lat,ST_X(r.geom) lng
-   from tasks t join requests r on r.id=t.request_id join users u on u.id=r.user_id left join relief_centers c on c.id=r.center_id where t.volunteer_id=$1 order by t.id desc`,
+   from tasks t join requests r on r.id=t.request_id join users u on u.id=r.user_id left join relief_centers c on c.id=r.center_id where t.volunteer_id=$1
+   order by (t.status='COMPLETED'), case t.priority when 'High' then 0 when 'Medium' then 1 else 2 end, t.id desc`,
         [req.user.id],
       ),
     ),
   ),
+);
+app.get(
+  "/api/tasks/:id",
+  auth("volunteer"),
+  wrap(async (req, res) => {
+    const [t] = await q(
+      `select t.id,t.priority,t.status,t.updated_at,r.people,r.need,r.created_at requested_at,u.name resident,u.contact,c.name center,ST_Y(r.geom) lat,ST_X(r.geom) lng
+   from tasks t join requests r on r.id=t.request_id join users u on u.id=r.user_id left join relief_centers c on c.id=r.center_id where t.id=$1 and t.volunteer_id=$2`,
+      [+req.params.id || 0, req.user.id],
+    );
+    if (!t) throw Error("Not your task");
+    res.json(t);
+  }),
+);
+app.post(
+  "/api/tasks/:id/decline",
+  auth("volunteer"),
+  wrap(async (req, res) => {
+    // the task is removed and the request goes back to ACCEPTED so the authority can reassign it
+    const c = await db.connect();
+    try {
+      await c.query("begin");
+      const t = await c.query(
+        "delete from tasks where id=$1 and volunteer_id=$2 and status<>'COMPLETED' returning request_id",
+        [+req.params.id || 0, req.user.id],
+      );
+      if (!t.rowCount) throw Error("This task can't be declined");
+      await c.query("update requests set status='ACCEPTED' where id=$1", [
+        t.rows[0].request_id,
+      ]);
+      await c.query("commit");
+      res.json({ ok: 1 });
+    } catch (e) {
+      await c.query("rollback");
+      throw e;
+    } finally {
+      c.release();
+    }
+  }),
 );
 app.patch(
   "/api/tasks/:id",
@@ -409,11 +555,13 @@ app.patch(
     const { status } = req.body;
     if (!["IN_PROGRESS", "COMPLETED"].includes(status))
       throw Error("Bad status");
+    // allowed moves: ASSIGNED -> IN_PROGRESS, ASSIGNED/IN_PROGRESS -> COMPLETED
+    const from = status == "COMPLETED" ? ["ASSIGNED", "IN_PROGRESS"] : ["ASSIGNED"];
     const [t] = await q(
-      "update tasks set status=$1,updated_at=now() where id=$2 and volunteer_id=$3 returning request_id",
-      [status, req.params.id, req.user.id],
+      "update tasks set status=$1,updated_at=now() where id=$2 and volunteer_id=$3 and status=any($4) returning request_id",
+      [status, +req.params.id || 0, req.user.id, from],
     );
-    if (!t) throw Error("Not your task");
+    if (!t) throw Error("This task can't be moved to that status");
     await q("update requests set status=$1 where id=$2", [
       status == "COMPLETED" ? "RESOLVED" : "IN_PROGRESS",
       t.request_id,
@@ -442,6 +590,15 @@ app.get(
 );
 
 (async () => {
+  // the two seeded demo centers used Lahore coordinates; move them to Islamabad-Rawalpindi
+  await q(
+    `update relief_centers set geom=ST_SetSRID(ST_MakePoint(73.0479,33.6844),4326)
+     where name='Govt Girls School Shelter' and abs(ST_X(geom)-74.33)<1e-6 and abs(ST_Y(geom)-31.55)<1e-6`,
+  );
+  await q(
+    `update relief_centers set geom=ST_SetSRID(ST_MakePoint(73.0551,33.6007),4326)
+     where name='Community Hall Relief Camp' and abs(ST_X(geom)-74.38)<1e-6 and abs(ST_Y(geom)-31.5)<1e-6`,
+  );
   const [a] = await q(`select 1 from users where role='authority'`);
   if (!a)
     await q(
@@ -451,6 +608,8 @@ app.get(
         await bcrypt.hash(process.env.ADMIN_PASSWORD || "admin123", 10),
       ],
     );
+  if (!process.env.ADMIN_PASSWORD)
+    console.warn("WARNING: ADMIN_PASSWORD is not set; the default admin password is in use.");
   app.listen(process.env.PORT || 3000, () =>
     console.log("FloodSafe on http://localhost:" + (process.env.PORT || 3000)),
   );

@@ -22,7 +22,7 @@ export default function AssistPage() {
       <PinInfo />
       <select value={f.center} onChange={set("center")}>
         <option value="">No relief center</option>
-        {MD.centers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        {MD.centers.filter((c) => c.status === "OPEN" && c.available > 0).map((c) => <option key={c.id} value={c.id}>{c.name} ({c.available} free)</option>)}
       </select>
       <input type="number" min={1} value={f.people} onChange={set("people")} placeholder="People" />
       <input value={f.need} onChange={set("need")} placeholder="Need (food, water, medicine, rescue…)" />

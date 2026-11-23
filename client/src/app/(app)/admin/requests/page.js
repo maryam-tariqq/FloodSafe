@@ -7,10 +7,12 @@ import { Badge, Card, Empty } from "@/components/ui";
 
 function ReqCard({ x, vols, reload }) {
   const { safe, flyTo } = useApp();
-  const [vol, setVol] = useState(vols[0]?.id ?? "");
+  const [vol0, setVol] = useState("");
+  const vol = vol0 || vols[0]?.id || "";
   const [pri, setPri] = useState("Medium");
   const accept = safe(async () => { await api(`/requests/${x.id}/accept`, { m: "POST" }); reload(); });
   const assign = safe(async () => {
+    if (!vol) throw Error("No volunteers are registered yet");
     await api(`/requests/${x.id}/assign`, { m: "POST", b: { volunteer_id: vol, priority: pri } });
     reload();
   });
@@ -23,26 +25,31 @@ function ReqCard({ x, vols, reload }) {
       {x.status === "ACCEPTED" && (
         <>
           <div className="row">
-            <select value={vol} onChange={(e) => setVol(e.target.value)} style={{ width: "46%" }}>
-              {vols.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-            <select value={pri} onChange={(e) => setPri(e.target.value)} style={{ width: "46%" }}>
-              <option>Low</option><option>Medium</option><option>High</option>
-            </select>
+            <label className="m" style={{ width: "46%" }}>Volunteer
+              <select value={vol} onChange={(e) => setVol(e.target.value)}>
+                {vols.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </label>
+            <label className="m" style={{ width: "46%" }}>Task priority
+              <select value={pri} onChange={(e) => setPri(e.target.value)}>
+                <option>Low</option><option>Medium</option><option>High</option>
+              </select>
+            </label>
           </div>
+          {!vols.length && <p className="m">No volunteers registered yet.</p>}
           <button onClick={assign}>Assign volunteer</button>
         </>
       )}
       {x.status !== "PENDING" && x.status !== "ACCEPTED" && x.volunteer && (
-        <p className="m">Volunteer: {x.volunteer} · {x.priority} · task {x.task_status}</p>
+        <p className="m"><b>Volunteer:</b> {x.volunteer} · <b>Task priority:</b> {x.priority} · <b>Task status:</b> {x.task_status}</p>
       )}
     </Card>
   );
 }
 
 export default function RequestsPage() {
-  const [r, reload] = useLoad("/requests");
-  const [v] = useLoad("/volunteers");
+  const [r, reload] = useLoad("/requests", 5000);
+  const [v] = useLoad("/volunteers", 15000);
   return (
     <>
       <h3>Assistance requests</h3>

@@ -6,24 +6,48 @@ import { fmt } from "@/lib/format";
 import { Badge, Card, Empty, PinInfo } from "@/components/ui";
 
 function CenterRow({ c }) {
-  const { safe, loadMap } = useApp();
+  const { safe, loadMap, pin, setPin } = useApp();
+  const [nm, setNm] = useState(c.name);
+  const [cap, setCap] = useState(c.capacity);
   const [av, setAv] = useState(c.available);
   const [st, setSt] = useState(c.status);
+  const [move, setMove] = useState(false);
   const save = safe(async () => {
-    await api("/centers/" + c.id, { m: "PUT", b: { available: av, status: st } });
+    if (!nm.trim()) throw Error("Center name is required");
+    if (!(+cap >= 0) || !(+av >= 0)) throw Error("Capacity and available must be 0 or more");
+    if (+av > +cap) throw Error("Available spaces can't be more than the total capacity");
+    const b = { name: nm, capacity: cap, available: av, status: st };
+    if (move) {
+      if (!pin) throw Error("Tap the map to choose the new location");
+      b.lat = pin.lat;
+      b.lng = pin.lng;
+    }
+    await api("/centers/" + c.id, { m: "PUT", b });
+    if (move) setPin(null);
+    await loadMap();
+  });
+  const del = safe(async () => {
+    if (!confirm("Delete this relief center?")) return;
+    await api("/centers/" + c.id, { m: "DELETE" });
     await loadMap();
   });
   return (
     <Card>
-      <b>{c.name}</b> <Badge s={c.status} /><br />
+      <input value={nm} onChange={(e) => setNm(e.target.value)} />
+      <Badge s={c.status} /><br />
       <small className="m">Updated {fmt(c.updated_at)}</small>
       <div className="row">
         <input type="number" value={av} onChange={(e) => setAv(e.target.value)} style={{ width: 70 }} />
-        <small className="m" style={{ alignSelf: "center" }}>/ {c.capacity}</small>
+        <small className="m" style={{ alignSelf: "center" }}>/</small>
+        <input type="number" value={cap} onChange={(e) => setCap(e.target.value)} style={{ width: 70 }} />
         <select value={st} onChange={(e) => setSt(e.target.value)} style={{ width: 90 }}>
           <option>OPEN</option><option>CLOSED</option>
         </select>
         <button onClick={save}>Save</button>
+      </div>
+      <div className="row">
+        <label className="m"><input type="checkbox" checked={move} onChange={(e) => setMove(e.target.checked)} style={{ width: "auto" }} /> Move to the pin on the map{move && !pin ? " (tap the map first)" : ""}</label>
+        <button className="r" onClick={del}>Delete</button>
       </div>
     </Card>
   );
@@ -34,6 +58,10 @@ export default function CentersPage() {
   const [f, setF] = useState({ name: "", capacity: "", available: "" });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const add = safe(async () => {
+    if (!f.name.trim()) throw Error("Center name is required");
+    if (f.capacity === "" || f.available === "") throw Error("Enter both capacity and available spaces");
+    if (!(+f.capacity >= 0) || !(+f.available >= 0)) throw Error("Capacity and available must be 0 or more");
+    if (+f.available > +f.capacity) throw Error("Available spaces can't be more than the total capacity");
     if (!pin) throw Error("Tap the map to place the center");
     await api("/centers", { m: "POST", b: { ...f, lat: pin.lat, lng: pin.lng } });
     setF({ name: "", capacity: "", available: "" });

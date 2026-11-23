@@ -14,5 +14,5 @@ CREATE TABLE tasks(id serial PRIMARY KEY,request_id int UNIQUE REFERENCES reques
 CREATE INDEX ON reports USING gist(geom);CREATE INDEX ON flood_zones USING gist(geom);
 CREATE INDEX ON relief_centers USING gist(geom);CREATE INDEX ON requests USING gist(geom);
 INSERT INTO relief_centers(name,geom,capacity,available) VALUES
-('Govt Girls School Shelter',ST_SetSRID(ST_MakePoint(74.33,31.55),4326),200,120),
-('Community Hall Relief Camp',ST_SetSRID(ST_MakePoint(74.38,31.50),4326),100,0);
+('Govt Girls School Shelter',ST_SetSRID(ST_MakePoint(73.0479,33.6844),4326),200,120),
+('Community Hall Relief Camp',ST_SetSRID(ST_MakePoint(73.0551,33.6007),4326),100,0);

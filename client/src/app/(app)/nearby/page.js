@@ -6,7 +6,7 @@ import { fmt } from "@/lib/format";
 import { Badge, Card, Tank } from "@/components/ui";
 
 export default function NearbyPage() {
-  const { safe, flyTo } = useApp();
+  const { safe, flyTo, pin, msg } = useApp();
   const [res, setRes] = useState([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,22 +16,33 @@ export default function NearbyPage() {
     setSearched(false);
     setRes([]);
     try {
-      if (!navigator.geolocation)
-        throw Error("Your browser doesn't support location");
-      const p = await new Promise((ok, no) =>
-        navigator.geolocation.getCurrentPosition(
-          (x) => ok({ lat: x.coords.latitude, lng: x.coords.longitude }),
-          (err) =>
-            no(
-              Error(
-                err.code === 1
-                  ? "Location is blocked. Allow it in your browser's site settings and try again."
-                  : "Couldn't get your location. Try again.",
-              ),
+      // no device location (blocked or unsupported): use the pin dropped on the map instead
+      const noLoc = (text) => {
+        if (!pin) throw Error(text + " Or tap the map to drop a pin and try again.");
+        msg("Using the pin you dropped on the map");
+        return { lat: pin.lat, lng: pin.lng };
+      };
+      const p = !navigator.geolocation
+        ? noLoc("Your browser doesn't support location.")
+        : await new Promise((ok, no) =>
+            navigator.geolocation.getCurrentPosition(
+              (x) => ok({ lat: x.coords.latitude, lng: x.coords.longitude }),
+              (err) => {
+                try {
+                  ok(
+                    noLoc(
+                      err.code === 1
+                        ? "Location is blocked. Allow it in your browser's site settings."
+                        : "Couldn't get your location.",
+                    ),
+                  );
+                } catch (e) {
+                  no(e);
+                }
+              },
+              { enableHighAccuracy: true, timeout: 10000 },
             ),
-          { enableHighAccuracy: true, timeout: 10000 },
-        ),
-      );
+          );
       setRes(await api(`/centers/nearby?lat=${p.lat}&lng=${p.lng}`));
       setSearched(true);
     } finally {

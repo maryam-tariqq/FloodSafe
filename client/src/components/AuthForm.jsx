@@ -46,7 +46,7 @@ export default function AuthForm({ register = false }) {
         <h1>
           Know where the water is.<span>Know where to go.</span>
         </h1>
-        <svg className="waves" viewBox="0 0 400 100" preserveAspectRatio="none" aria-hidden="true">
+        <svg viewBox="0 0 400 100" preserveAspectRatio="none" aria-hidden="true">
           <g fill="none" strokeWidth="3">
             <path d="M0 30Q25 10 50 30T100 30T150 30T200 30T250 30T300 30T350 30T400 30" stroke="#48C9B0" />
             <path d="M0 52Q25 34 50 52T100 52T150 52T200 52T250 52T300 52T350 52T400 52" stroke="#AED6F1" />

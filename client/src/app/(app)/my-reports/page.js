@@ -4,7 +4,7 @@ import { fmt } from "@/lib/format";
 import { Badge, Card, Empty } from "@/components/ui";
 
 export default function MyReportsPage() {
-  const [r] = useLoad("/reports/mine");
+  const [r] = useLoad("/reports/mine", 5000);
   return (
     <>
       <h3>My reports</h3>
