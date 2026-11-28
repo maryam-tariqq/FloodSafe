@@ -18,7 +18,8 @@ export default function NearbyPage() {
     try {
       // no device location (blocked or unsupported): use the pin dropped on the map instead
       const noLoc = (text) => {
-        if (!pin) throw Error(text + " Or tap the map to drop a pin and try again.");
+        if (!pin)
+          throw Error(text + " Or tap the map to drop a pin and try again.");
         msg("Using the pin you dropped on the map");
         return { lat: pin.lat, lng: pin.lng };
       };
@@ -74,7 +75,10 @@ export default function NearbyPage() {
             <div>
               <b>{c.name}</b> <Badge s={c.status} />
               <br />
-              {c.km.toFixed(1)} km · {c.available}/{c.capacity} spaces
+              {c.km.toFixed(1)} km ·{" "}
+              {c.available > 0
+                ? `${c.available} of ${c.capacity} spaces free`
+                : `Full (0 of ${c.capacity} free)`}
               <br />
               <small className="m">Updated {fmt(c.updated_at)}</small>
               <br />
