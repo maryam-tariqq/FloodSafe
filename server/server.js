@@ -18,8 +18,10 @@ const db = new Pool({
 });
 
 // random on every start unless JWT_SECRET is set: restarting then invalidates every existing login
+// a fresh random part is added on every start, so restarting the server always invalidates every existing login
 const SECRET =
-  process.env.JWT_SECRET || require("crypto").randomBytes(32).toString("hex");
+  (process.env.JWT_SECRET || "") +
+  require("crypto").randomBytes(32).toString("hex");
 
 fs.mkdirSync("uploads", { recursive: true });
 const up = multer({
@@ -40,7 +42,9 @@ const upPhoto = (req, res, next) =>
     e
       ? res.status(400).json({
           error:
-            e.code === "LIMIT_FILE_SIZE" ? "Photo must be under 2 MB" : e.message,
+            e.code === "LIMIT_FILE_SIZE"
+              ? "Photo must be under 2 MB"
+              : e.message,
         })
       : next(),
   );
@@ -354,7 +358,12 @@ app.put(
       throw Error("Available spaces can't be more than capacity");
     if (name !== undefined && !name.trim()) throw Error("Name required");
     if (lat !== undefined && !okLL(lat, lng)) throw Error("Bad location");
-    const sets = ["available=$1", "status=$2", "capacity=$3", "updated_at=now()"];
+    const sets = [
+      "available=$1",
+      "status=$2",
+      "capacity=$3",
+      "updated_at=now()",
+    ];
     const p = [+available, status, cap];
     if (name !== undefined) sets.push(`name=$${p.push(name.trim())}`);
     if (lat !== undefined)
@@ -556,7 +565,8 @@ app.patch(
     if (!["IN_PROGRESS", "COMPLETED"].includes(status))
       throw Error("Bad status");
     // allowed moves: ASSIGNED -> IN_PROGRESS, ASSIGNED/IN_PROGRESS -> COMPLETED
-    const from = status == "COMPLETED" ? ["ASSIGNED", "IN_PROGRESS"] : ["ASSIGNED"];
+    const from =
+      status == "COMPLETED" ? ["ASSIGNED", "IN_PROGRESS"] : ["ASSIGNED"];
     const [t] = await q(
       "update tasks set status=$1,updated_at=now() where id=$2 and volunteer_id=$3 and status=any($4) returning request_id",
       [status, +req.params.id || 0, req.user.id, from],
@@ -609,7 +619,9 @@ app.get(
       ],
     );
   if (!process.env.ADMIN_PASSWORD)
-    console.warn("WARNING: ADMIN_PASSWORD is not set; the default admin password is in use.");
+    console.warn(
+      "WARNING: ADMIN_PASSWORD is not set; the default admin password is in use.",
+    );
   app.listen(process.env.PORT || 3000, () =>
     console.log("FloodSafe on http://localhost:" + (process.env.PORT || 3000)),
   );
